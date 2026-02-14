@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Power BI to PPTX Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/powerbi-client@2.23.9/dist/powerbi.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@4.0.1/dist/pptxgen.bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@5.2.0/lib/msal-browser.min.js"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="hero">
+        <p class="eyebrow">GitHub Pages Client App</p>
+        <h1>Power BI Report to PowerPoint Deck Generator</h1>
+        <p class="hero-copy">
+          Embed a report, choose visuals with a checklist, and generate a downloadable
+          <code>.pptx</code> deck in the browser using Power BI JavaScript API + PptxGenJS.
+        </p>
+      </header>
+
+      <section class="main-grid">
+        <aside class="panel controls-panel">
+          <h2>1) Connection and Auth</h2>
+
+          <fieldset class="card-block">
+            <legend>Token Source</legend>
+            <label class="inline-option">
+              <input type="radio" name="authMode" value="manual" checked />
+              Paste existing token
+            </label>
+            <label class="inline-option">
+              <input type="radio" name="authMode" value="msal" />
+              Sign in with Azure AD (MSAL)
+            </label>
+          </fieldset>
+
+          <div id="manualTokenSection" class="card-block">
+            <label for="accessTokenInput">Power BI Access Token</label>
+            <textarea
+              id="accessTokenInput"
+              rows="4"
+              placeholder="Paste Azure AD access token or embed token"
+            ></textarea>
+          </div>
+
+          <div id="msalSection" class="card-block hidden">
+            <label for="tenantIdInput">Tenant ID</label>
+            <input id="tenantIdInput" type="text" placeholder="contoso.onmicrosoft.com or GUID" />
+
+            <label for="clientIdInput">Azure App Client ID</label>
+            <input id="clientIdInput" type="text" placeholder="Application (client) ID" />
+
+            <label for="scopesInput">Scopes (space-separated)</label>
+            <input
+              id="scopesInput"
+              type="text"
+              value="https://analysis.windows.net/powerbi/api/Report.Read.All"
+            />
+
+            <div class="button-row compact">
+              <button id="signInBtn" type="button">Sign in</button>
+              <button id="signOutBtn" type="button" class="ghost">Sign out</button>
+            </div>
+            <p id="msalAccountInfo" class="muted">Not signed in.</p>
+          </div>
+
+          <div class="card-block">
+            <label for="tokenTypeInput">Token Type</label>
+            <select id="tokenTypeInput">
+              <option value="Aad" selected>Azure AD (User owns data)</option>
+              <option value="Embed">Embed token (App owns data)</option>
+            </select>
+          </div>
+
+          <div class="card-block">
+            <label for="embedUrlInput">Power BI Embed URL</label>
+            <input
+              id="embedUrlInput"
+              type="text"
+              placeholder="https://app.powerbi.com/reportEmbed?reportId=..."
+            />
+
+            <label for="reportIdInput">Report ID</label>
+            <input id="reportIdInput" type="text" placeholder="Report GUID" />
+
+            <label for="startingPageInput">Starting Page Name (optional)</label>
+            <input id="startingPageInput" type="text" placeholder="ReportSection..." />
+          </div>
+
+          <div class="button-row">
+            <button id="embedReportBtn" type="button">Embed Report</button>
+            <button id="loadVisualsBtn" type="button" class="ghost">Load Pages and Visuals</button>
+          </div>
+
+          <h2>2) Export Settings</h2>
+
+          <div class="card-block">
+            <label for="deckTitleInput">Deck Title Prefix</label>
+            <input id="deckTitleInput" type="text" value="PowerBI Export" />
+
+            <label for="slideLayoutInput">Slide Layout</label>
+            <select id="slideLayoutInput">
+              <option value="LAYOUT_WIDE" selected>Widescreen 16:9</option>
+              <option value="LAYOUT_STANDARD">Standard 4:3</option>
+            </select>
+
+            <label for="imageScaleInput">Image Scale Multiplier</label>
+            <input id="imageScaleInput" type="number" min="1" max="4" step="0.5" value="2" />
+
+            <label class="inline-option">
+              <input id="includePageNameInTitleInput" type="checkbox" checked />
+              Include page name in slide title
+            </label>
+          </div>
+
+          <div class="button-row">
+            <button id="selectAllBtn" type="button" class="ghost">Select All</button>
+            <button id="clearSelectionBtn" type="button" class="ghost">Clear</button>
+          </div>
+
+          <div class="button-row">
+            <button id="thumbnailBtn" type="button" class="ghost">Load Thumbnails</button>
+            <button id="generatePptBtn" type="button" class="primary">Generate PPTX</button>
+          </div>
+        </aside>
+
+        <section class="panel workspace-panel">
+          <div class="workspace-top">
+            <h2>Embedded Report</h2>
+            <p class="muted" id="selectionCountLabel">Selected visuals: 0</p>
+          </div>
+
+          <div id="embedContainer" class="embed-container" aria-label="Power BI report embed container"></div>
+
+          <section class="selection-panel">
+            <div class="selection-header">
+              <h3>3) Visual Selection</h3>
+              <p class="muted">Built from <code>report.getPages()</code> and <code>page.getVisuals()</code>.</p>
+            </div>
+            <div id="visualSelection" class="visual-selection empty-state">
+              Embed a report, then click "Load Pages and Visuals".
+            </div>
+          </section>
+
+          <section class="status-panel">
+            <h3>Status</h3>
+            <div id="statusLog" class="status-log"></div>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

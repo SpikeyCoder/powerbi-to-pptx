@@ -1,0 +1,91 @@
+# Power BI PPTX Generator (GitHub Pages)
+
+Client-side JavaScript app that embeds a Power BI report, lets users pick report pages/visuals, and generates a downloadable PowerPoint deck with one visual per slide.
+
+## What this app does
+
+- Embeds a Power BI report with the **Power BI JavaScript API**.
+- Loads selectable visuals via:
+  - `report.getPages()`
+  - `page.getVisuals()`
+- Supports checklist-based selection (page-level and visual-level).
+- Exports selected visuals as images via **`exportVisualAsImage`** and inserts each image into a slide.
+- Builds `.pptx` in-browser with **PptxGenJS**.
+- Preserves visual aspect ratio from Power BI layout metadata and auto-generates slide titles from visual/page metadata.
+
+## Project files
+
+- `/Users/kevinarmstrong/powerbi-pptx-generator/index.html` - UI and CDN dependencies
+- `/Users/kevinarmstrong/powerbi-pptx-generator/styles.css` - styling
+- `/Users/kevinarmstrong/powerbi-pptx-generator/app.js` - embed, selection, export logic
+
+## Run locally
+
+Because this is a static app, use any static file server:
+
+```bash
+cd /Users/kevinarmstrong/powerbi-pptx-generator
+python3 -m http.server 8080
+```
+
+Open [http://localhost:8080](http://localhost:8080).
+
+## Authentication options (static-host friendly)
+
+### Option A: Paste token manually
+
+1. Obtain a short-lived Azure AD token or embed token from your secure auth flow.
+2. Paste the token into **Power BI Access Token**.
+3. Choose token type:
+   - **Azure AD** for user-owns-data
+   - **Embed** for app-owns-data token
+
+### Option B: Azure AD sign-in with MSAL (browser)
+
+1. Create an Azure App Registration (SPA/public client).
+2. Add your URL as a redirect URI:
+   - local: `http://localhost:8080`
+   - GitHub Pages: `https://<your-user>.github.io/<repo>/`
+3. Grant delegated Power BI permissions (for example `Report.Read.All`) and consent.
+4. In the app, choose **Sign in with Azure AD (MSAL)** and provide:
+   - Tenant ID
+   - Client ID
+   - Scopes
+5. Click **Sign in**.
+
+### Important security note
+
+GitHub Pages has no backend runtime. Do **not** place client secrets in this app. If you need service principal tokens, mint them in a secure backend/token broker and pass short-lived tokens to the frontend.
+
+## Deploy to GitHub Pages
+
+1. Push this repository to GitHub.
+2. In GitHub: **Settings -> Pages**.
+3. Source: deploy from `main` branch (root).
+4. Save and wait for Pages publish.
+5. Use the published URL in your Azure App redirect settings (if MSAL login is used).
+
+## Usage workflow
+
+1. Fill token + report embed settings.
+2. Click **Embed Report**.
+3. Click **Load Pages and Visuals**.
+4. Select desired visuals (or Select All).
+5. Optional: click **Load Thumbnails** to preview selected visuals.
+6. Click **Generate PPTX** to download the deck.
+
+## Troubleshooting
+
+- **`exportVisualAsImage` not exposed**:
+  - Your tenant/capabilities or embed context may not expose this API.
+  - Confirm report permissions and that your embedding scenario supports visual image export.
+- **Auth popup errors**:
+  - Validate redirect URI and API permissions in Azure App Registration.
+- **No visuals listed**:
+  - Verify the report has accessible pages and loaded successfully.
+
+## References
+
+- [Power BI JavaScript SDK](https://learn.microsoft.com/javascript/api/overview/powerbi/)
+- [PptxGenJS](https://gitbrent.github.io/PptxGenJS/)
+- [MSAL Browser](https://github.com/AzureAD/microsoft-authentication-library-for-js/tree/dev/lib/msal-browser)
