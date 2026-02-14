@@ -10,6 +10,7 @@ const state = {
   account: null,
   msalToken: "",
   tokenExpiresOn: null,
+  demoMode: false,
   busy: false,
 };
 
@@ -81,6 +82,7 @@ function cacheDom() {
 
   dom.embedReportBtn = document.getElementById("embedReportBtn");
   dom.loadVisualsBtn = document.getElementById("loadVisualsBtn");
+  dom.loadDemoBtn = document.getElementById("loadDemoBtn");
 
   dom.deckTitleInput = document.getElementById("deckTitleInput");
   dom.slideLayoutInput = document.getElementById("slideLayoutInput");
@@ -112,6 +114,7 @@ function wireEvents() {
 
   dom.embedReportBtn.addEventListener("click", () => runAction("Embed report", embedReport));
   dom.loadVisualsBtn.addEventListener("click", () => runAction("Load pages + visuals", loadPagesAndVisuals));
+  dom.loadDemoBtn.addEventListener("click", () => runAction("Load demo visuals", loadDemoData));
 
   dom.selectAllBtn.addEventListener("click", selectAllVisuals);
   dom.clearSelectionBtn.addEventListener("click", clearSelections);
@@ -180,6 +183,7 @@ function setButtonsDisabled(disabled) {
     dom.signOutBtn,
     dom.embedReportBtn,
     dom.loadVisualsBtn,
+    dom.loadDemoBtn,
     dom.selectAllBtn,
     dom.clearSelectionBtn,
     dom.thumbnailBtn,
@@ -370,6 +374,7 @@ async function embedReport() {
     throw new Error("Embed URL and Report ID are required.");
   }
 
+  state.demoMode = false;
   resetSelectionState();
   window.powerbi.reset(dom.embedContainer);
 
@@ -444,6 +449,7 @@ async function loadPagesAndVisuals() {
     throw new Error("Embed a report first.");
   }
 
+  state.demoMode = false;
   const pages = await state.report.getPages();
   const loadedPages = [];
 
@@ -461,6 +467,62 @@ async function loadPagesAndVisuals() {
   updateSelectionCount();
 
   logStatus(`Loaded ${loadedPages.length} pages and ${state.visualIndex.size} visuals.`, "success");
+}
+
+async function loadDemoData() {
+  state.demoMode = true;
+  state.report = null;
+
+  if (window.powerbi) {
+    window.powerbi.reset(dom.embedContainer);
+  }
+
+  setDemoEmbedPlaceholder();
+  resetSelectionState("Demo visuals loaded. Adjust selection and generate the deck.");
+
+  state.pages = createDemoPages();
+  rebuildVisualIndex();
+  renderVisualSelection();
+  selectAllVisuals();
+
+  logStatus("Demo mode loaded with sample pages and visuals.", "success");
+}
+
+function createDemoPages() {
+  return [
+    {
+      page: { name: "DemoPageExecutive", displayName: "Executive Overview" },
+      visuals: [
+        { name: "visualRevenueKpi", title: "Revenue KPI", type: "card", layout: { width: 420, height: 260 } },
+        { name: "visualRevenueTrend", title: "Monthly Revenue Trend", type: "lineChart", layout: { width: 880, height: 420 } },
+        { name: "visualMarginBySegment", title: "Margin by Segment", type: "barChart", layout: { width: 760, height: 430 } },
+      ],
+    },
+    {
+      page: { name: "DemoPageRegional", displayName: "Regional Performance" },
+      visuals: [
+        { name: "visualGeoMap", title: "Revenue by Region", type: "map", layout: { width: 860, height: 500 } },
+        { name: "visualDealPipeline", title: "Deal Pipeline", type: "columnChart", layout: { width: 780, height: 420 } },
+        { name: "visualTopAccounts", title: "Top Accounts", type: "tableEx", layout: { width: 920, height: 380 } },
+      ],
+    },
+    {
+      page: { name: "DemoPageProfitability", displayName: "Profitability Insights" },
+      visuals: [
+        { name: "visualWaterfall", title: "Variance Waterfall", type: "waterfall", layout: { width: 860, height: 430 } },
+        { name: "visualProfitScatter", title: "Profitability Scatter", type: "scatterChart", layout: { width: 840, height: 430 } },
+        { name: "visualForecast", title: "Forecast Snapshot", type: "areaChart", layout: { width: 820, height: 390 } },
+      ],
+    },
+  ];
+}
+
+function setDemoEmbedPlaceholder() {
+  dom.embedContainer.innerHTML =
+    '<div class="empty-state" style="height: 100%; min-height: 340px;">' +
+    'Demo Mode enabled. No Power BI authentication is required.<br />' +
+    'Use the generated sample visuals to preview PPTX output.' +
+    '</div>';
 }
 
 function rebuildVisualIndex() {
@@ -629,8 +691,8 @@ function clearSelections() {
 }
 
 async function loadThumbnailsForSelection() {
-  if (!state.report) {
-    throw new Error("Embed and load visuals first.");
+  if (!state.report && !state.demoMode) {
+    throw new Error("Embed and load visuals first, or load Demo Mode.");
   }
 
   const selected = collectSelectedVisualsInOrder();
@@ -653,7 +715,7 @@ async function loadThumbnailsForSelection() {
       continue;
     }
 
-    const imageData = await exportVisualAsImage(item.page, item.visual, Math.max(1, scale - 0.5));
+    const imageData = await getVisualImageData(item.page, item.visual, Math.max(1, scale - 0.5));
     thumbWrap.innerHTML = `<img alt="${escapeHtmlAttr(item.visual.title || item.visual.name)}" src="${imageData}" />`;
   }
 
@@ -665,8 +727,8 @@ async function generateDeck() {
     throw new Error("PptxGenJS is unavailable.");
   }
 
-  if (!state.report) {
-    throw new Error("Embed and load visuals first.");
+  if (!state.report && !state.demoMode) {
+    throw new Error("Embed and load visuals first, or load Demo Mode.");
   }
 
   const selected = collectSelectedVisualsInOrder();
@@ -693,13 +755,13 @@ async function generateDeck() {
 
     logStatus(`Exporting ${index + 1}/${selected.length}: ${visualTitle}`);
 
-    if (item.page.name !== activePageName) {
+    if (!state.demoMode && item.page.name !== activePageName) {
       activePageName = item.page.name;
       await state.report.setPage(activePageName);
       await sleep(300);
     }
 
-    const imageData = await exportVisualAsImage(item.page, item.visual, imageScale);
+    const imageData = await getVisualImageData(item.page, item.visual, imageScale);
     addSlideForVisual(pptx, dimensions, item, imageData, dom.includePageNameInTitleInput.checked);
   }
 
@@ -1035,12 +1097,12 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function resetSelectionState() {
+function resetSelectionState(message = "Report embedded. Click \"Load Pages and Visuals\".") {
   state.pages = [];
   state.visualIndex.clear();
   state.selectedVisualKeys.clear();
   dom.visualSelection.className = "visual-selection empty-state";
-  dom.visualSelection.textContent = "Report embedded. Click \"Load Pages and Visuals\".";
+  dom.visualSelection.textContent = message;
   updateSelectionCount();
 }
 
@@ -1068,4 +1130,295 @@ function logStatus(message, type = "info") {
   const stamp = new Date().toLocaleTimeString();
   entry.textContent = `[${stamp}] ${message}`;
   dom.statusLog.prepend(entry);
+}
+
+async function getVisualImageData(page, visual, scaleMultiplier) {
+  if (state.demoMode) {
+    return generateDemoVisualAsImage(page, visual, scaleMultiplier);
+  }
+
+  return exportVisualAsImage(page, visual, scaleMultiplier);
+}
+
+function generateDemoVisualAsImage(page, visual, scaleMultiplier) {
+  const width = Math.max(Math.round((Number(visual.layout?.width) || 1280) * scaleMultiplier), 640);
+  const height = Math.max(Math.round((Number(visual.layout?.height) || 720) * scaleMultiplier), 360);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Canvas context is unavailable for demo rendering.");
+  }
+
+  const palette = getDemoPalette(`${page.name}-${visual.name}`);
+
+  const gradient = ctx.createLinearGradient(0, 0, width, height);
+  gradient.addColorStop(0, palette.bgStart);
+  gradient.addColorStop(1, palette.bgEnd);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+
+  const pad = Math.round(width * 0.04);
+  const titleArea = Math.max(Math.round(height * 0.2), 90);
+
+  ctx.fillStyle = "rgba(255,255,255,0.93)";
+  ctx.fillRect(pad, pad, width - pad * 2, titleArea);
+
+  ctx.fillStyle = "#17324a";
+  ctx.font = `700 ${Math.max(18, Math.round(width * 0.024))}px DM Sans`;
+  ctx.fillText(visual.title || visual.name, pad + 16, pad + Math.round(titleArea * 0.45));
+
+  ctx.fillStyle = "#4a6178";
+  ctx.font = `500 ${Math.max(12, Math.round(width * 0.014))}px DM Sans`;
+  ctx.fillText(`${page.displayName || page.name} - ${visual.type || "visual"}`, pad + 16, pad + Math.round(titleArea * 0.75));
+
+  const chartX = pad;
+  const chartY = pad + titleArea + 18;
+  const chartW = width - pad * 2;
+  const chartH = height - chartY - pad;
+
+  ctx.fillStyle = "rgba(255,255,255,0.9)";
+  ctx.fillRect(chartX, chartY, chartW, chartH);
+
+  const type = String(visual.type || "").toLowerCase();
+  if (type.includes("line") || type.includes("area")) {
+    drawDemoLineChart(ctx, chartX, chartY, chartW, chartH, palette);
+  } else if (type.includes("bar") || type.includes("column") || type.includes("waterfall")) {
+    drawDemoBarChart(ctx, chartX, chartY, chartW, chartH, palette);
+  } else if (type.includes("pie") || type.includes("donut")) {
+    drawDemoDonutChart(ctx, chartX, chartY, chartW, chartH, palette);
+  } else if (type.includes("map")) {
+    drawDemoMapChart(ctx, chartX, chartY, chartW, chartH, palette);
+  } else if (type.includes("table")) {
+    drawDemoTableChart(ctx, chartX, chartY, chartW, chartH, palette);
+  } else if (type.includes("scatter")) {
+    drawDemoScatterChart(ctx, chartX, chartY, chartW, chartH, palette);
+  } else {
+    drawDemoKpiCard(ctx, chartX, chartY, chartW, chartH, palette);
+  }
+
+  return canvas.toDataURL("image/png");
+}
+
+function drawDemoLineChart(ctx, x, y, w, h, palette) {
+  const baseY = y + h - 28;
+  ctx.strokeStyle = palette.axis;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x + 20, y + 16);
+  ctx.lineTo(x + 20, baseY);
+  ctx.lineTo(x + w - 16, baseY);
+  ctx.stroke();
+
+  const points = [0.12, 0.28, 0.2, 0.44, 0.4, 0.62, 0.55, 0.75, 0.68, 0.82, 0.9, 0.7];
+  ctx.strokeStyle = palette.primary;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+
+  points.forEach((ratio, idx) => {
+    const px = x + 30 + (idx * (w - 54)) / (points.length - 1);
+    const py = baseY - ratio * (h - 58);
+    if (idx === 0) {
+      ctx.moveTo(px, py);
+    } else {
+      ctx.lineTo(px, py);
+    }
+  });
+  ctx.stroke();
+
+  ctx.fillStyle = palette.primarySoft;
+  ctx.beginPath();
+  ctx.moveTo(x + 30, baseY);
+  points.forEach((ratio, idx) => {
+    const px = x + 30 + (idx * (w - 54)) / (points.length - 1);
+    const py = baseY - ratio * (h - 58);
+    ctx.lineTo(px, py);
+  });
+  ctx.lineTo(x + w - 24, baseY);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawDemoBarChart(ctx, x, y, w, h, palette) {
+  const baseY = y + h - 26;
+  const barCount = 8;
+  const gap = 12;
+  const barW = (w - 36 - gap * (barCount - 1)) / barCount;
+
+  ctx.strokeStyle = palette.axis;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x + 18, y + 16);
+  ctx.lineTo(x + 18, baseY);
+  ctx.lineTo(x + w - 12, baseY);
+  ctx.stroke();
+
+  for (let i = 0; i < barCount; i += 1) {
+    const magnitude = 0.25 + ((i * 37) % 61) / 100;
+    const barH = magnitude * (h - 62);
+    const bx = x + 24 + i * (barW + gap);
+    const by = baseY - barH;
+
+    ctx.fillStyle = i % 2 === 0 ? palette.primary : palette.secondary;
+    ctx.fillRect(bx, by, barW, barH);
+  }
+}
+
+function drawDemoDonutChart(ctx, x, y, w, h, palette) {
+  const cx = x + w * 0.35;
+  const cy = y + h * 0.5;
+  const r = Math.min(w, h) * 0.28;
+  const ring = r * 0.44;
+  const slices = [0.28, 0.22, 0.18, 0.32];
+  const colors = [palette.primary, palette.secondary, palette.accent, palette.primarySoft];
+
+  let start = -Math.PI / 2;
+  slices.forEach((part, idx) => {
+    const end = start + part * Math.PI * 2;
+    ctx.beginPath();
+    ctx.strokeStyle = colors[idx % colors.length];
+    ctx.lineWidth = ring;
+    ctx.arc(cx, cy, r, start, end);
+    ctx.stroke();
+    start = end;
+  });
+
+  ctx.fillStyle = "#334e68";
+  ctx.font = `700 ${Math.max(16, Math.round(w * 0.06))}px DM Sans`;
+  ctx.fillText("62%", cx - r * 0.3, cy + 8);
+}
+
+function drawDemoMapChart(ctx, x, y, w, h, palette) {
+  ctx.fillStyle = "#edf4fa";
+  ctx.fillRect(x + 20, y + 20, w - 40, h - 40);
+
+  const regions = [
+    [0.2, 0.35, 14],
+    [0.35, 0.55, 10],
+    [0.55, 0.42, 12],
+    [0.68, 0.58, 15],
+    [0.78, 0.33, 11],
+  ];
+
+  regions.forEach(([rx, ry, size], idx) => {
+    const px = x + rx * w;
+    const py = y + ry * h;
+    ctx.beginPath();
+    ctx.fillStyle = idx % 2 === 0 ? palette.primary : palette.secondary;
+    ctx.arc(px, py, size, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(51,78,104,0.25)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(x + w * 0.5, y + h * 0.5);
+    ctx.stroke();
+  });
+}
+
+function drawDemoTableChart(ctx, x, y, w, h, palette) {
+  const rows = 7;
+  const cols = 4;
+  const cellW = (w - 24) / cols;
+  const cellH = (h - 24) / rows;
+
+  for (let r = 0; r < rows; r += 1) {
+    for (let c = 0; c < cols; c += 1) {
+      const cx = x + 12 + c * cellW;
+      const cy = y + 12 + r * cellH;
+      ctx.fillStyle = r === 0 ? "#d7e7f3" : r % 2 === 0 ? "#f8fbfe" : "#eef4fa";
+      ctx.fillRect(cx, cy, cellW - 4, cellH - 4);
+
+      if (r > 0 && c > 0) {
+        ctx.fillStyle = (r + c) % 2 === 0 ? palette.primary : palette.secondary;
+        ctx.fillRect(cx + 10, cy + Math.max(6, cellH * 0.28), Math.max(18, (cellW - 24) * ((r + c) % 3 + 1) * 0.25), 6);
+      }
+    }
+  }
+}
+
+function drawDemoScatterChart(ctx, x, y, w, h, palette) {
+  const baseX = x + 24;
+  const baseY = y + h - 24;
+
+  ctx.strokeStyle = palette.axis;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(baseX, y + 18);
+  ctx.lineTo(baseX, baseY);
+  ctx.lineTo(x + w - 18, baseY);
+  ctx.stroke();
+
+  for (let i = 0; i < 24; i += 1) {
+    const px = baseX + ((i * 37) % 91) / 100 * (w - 56);
+    const py = baseY - ((i * 29) % 87) / 100 * (h - 52);
+    const radius = 4 + ((i * 11) % 9);
+
+    ctx.fillStyle = i % 2 === 0 ? palette.primary : palette.secondary;
+    ctx.beginPath();
+    ctx.arc(px, py, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawDemoKpiCard(ctx, x, y, w, h, palette) {
+  ctx.fillStyle = "#eef5fb";
+  ctx.fillRect(x + 18, y + 18, w - 36, h - 36);
+
+  ctx.fillStyle = palette.primary;
+  ctx.font = `700 ${Math.max(26, Math.round(w * 0.1))}px DM Sans`;
+  ctx.fillText("$12.4M", x + 36, y + h * 0.52);
+
+  ctx.fillStyle = "#4f6a83";
+  ctx.font = `600 ${Math.max(14, Math.round(w * 0.035))}px DM Sans`;
+  ctx.fillText("Year-to-date revenue", x + 36, y + h * 0.68);
+}
+
+function getDemoPalette(seedValue) {
+  const palettes = [
+    {
+      bgStart: "#f4f8ff",
+      bgEnd: "#dce9f6",
+      primary: "#1f6f8b",
+      primarySoft: "rgba(31,111,139,0.24)",
+      secondary: "#3f8fb8",
+      accent: "#57b4ba",
+      axis: "#7a95ad",
+    },
+    {
+      bgStart: "#f7fbf5",
+      bgEnd: "#e0f0e3",
+      primary: "#2d7b55",
+      primarySoft: "rgba(45,123,85,0.24)",
+      secondary: "#4ea06f",
+      accent: "#86bc7b",
+      axis: "#7c9788",
+    },
+    {
+      bgStart: "#fff8f2",
+      bgEnd: "#f6e7d8",
+      primary: "#ad5a2c",
+      primarySoft: "rgba(173,90,44,0.24)",
+      secondary: "#d1864b",
+      accent: "#ebb26c",
+      axis: "#a88b73",
+    },
+  ];
+
+  const idx = Math.abs(hashString(seedValue)) % palettes.length;
+  return palettes[idx];
+}
+
+function hashString(value) {
+  let hash = 0;
+  const text = String(value || "");
+  for (let i = 0; i < text.length; i += 1) {
+    hash = (hash << 5) - hash + text.charCodeAt(i);
+    hash |= 0;
+  }
+  return hash;
 }

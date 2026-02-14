@@ -160,6 +160,10 @@ select:focus {
   margin-top: 8px;
 }
 
+.button-row.single {
+  grid-template-columns: 1fr;
+}
+
 button {
   border: none;
   border-radius: 9px;

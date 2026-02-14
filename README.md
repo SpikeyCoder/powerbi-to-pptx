@@ -11,6 +11,7 @@ Client-side JavaScript app that embeds a Power BI report, lets users pick report
 - Supports checklist-based selection (page-level and visual-level).
 - Exports selected visuals as images via **`exportVisualAsImage`** and inserts each image into a slide.
 - Builds `.pptx` in-browser with **PptxGenJS**.
+- Includes a **Demo Mode** that generates mock visuals for deck layout testing without authentication.
 - Preserves visual aspect ratio from Power BI layout metadata and auto-generates slide titles from visual/page metadata.
 
 ## Project files
@@ -78,12 +79,21 @@ GitHub Pages has no backend runtime. Do **not** place client secrets in this app
 
 ## Usage workflow
 
+### Live Power BI mode
+
 1. Fill token + report embed settings.
 2. Click **Embed Report**.
 3. Click **Load Pages and Visuals**.
 4. Select desired visuals (or Select All).
 5. Optional: click **Load Thumbnails** to preview selected visuals.
 6. Click **Generate PPTX** to download the deck.
+
+### Demo mode (no login)
+
+1. Click **Load Demo Mode (No Login)**.
+2. Keep all demo visuals selected or adjust selection.
+3. Optional: click **Load Thumbnails** to preview rendered mock visuals.
+4. Click **Generate PPTX** to download a sample deck for layout review.
 
 ## Troubleshooting
 
