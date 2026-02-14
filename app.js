@@ -18,12 +18,43 @@ const layoutDimensions = {
   LAYOUT_STANDARD: { w: 10, h: 7.5 },
 };
 
+const cloudProfiles = {
+  commercial: {
+    id: "commercial",
+    authorityBase: "https://login.microsoftonline.com",
+    defaultScope: "https://analysis.windows.net/powerbi/api/Report.Read.All",
+  },
+  gcc: {
+    id: "gcc",
+    authorityBase: "https://login.microsoftonline.com",
+    defaultScope: "https://analysis.usgovcloudapi.net/powerbi/api/Report.Read.All",
+  },
+  gccHigh: {
+    id: "gccHigh",
+    authorityBase: "https://login.microsoftonline.us",
+    defaultScope: "https://high.analysis.usgovcloudapi.net/powerbi/api/Report.Read.All",
+  },
+  dod: {
+    id: "dod",
+    authorityBase: "https://login.microsoftonline.us",
+    defaultScope: "https://mil.analysis.usgovcloudapi.net/powerbi/api/Report.Read.All",
+  },
+  china: {
+    id: "china",
+    authorityBase: "https://login.chinacloudapi.cn",
+    defaultScope: "https://analysis.chinacloudapi.cn/powerbi/api/Report.Read.All",
+  },
+};
+
+const allDefaultScopes = new Set(Object.values(cloudProfiles).map((profile) => profile.defaultScope));
+
 const dom = {};
 
 document.addEventListener("DOMContentLoaded", () => {
   cacheDom();
   wireEvents();
   toggleAuthModeSections();
+  applyCloudDefaults(true);
   ensureSdkAvailability();
   logStatus("Ready. Provide auth + embed settings, then click Embed Report.", "success");
 });
@@ -38,6 +69,7 @@ function cacheDom() {
 
   dom.tenantIdInput = document.getElementById("tenantIdInput");
   dom.clientIdInput = document.getElementById("clientIdInput");
+  dom.cloudEnvironmentInput = document.getElementById("cloudEnvironmentInput");
   dom.scopesInput = document.getElementById("scopesInput");
   dom.signInBtn = document.getElementById("signInBtn");
   dom.signOutBtn = document.getElementById("signOutBtn");
@@ -71,6 +103,10 @@ function wireEvents() {
     radio.addEventListener("change", toggleAuthModeSections);
   }
 
+  if (dom.cloudEnvironmentInput) {
+    dom.cloudEnvironmentInput.addEventListener("change", () => applyCloudDefaults(false));
+  }
+
   dom.signInBtn.addEventListener("click", () => runAction("MSAL sign in", signInWithMsal));
   dom.signOutBtn.addEventListener("click", () => runAction("MSAL sign out", signOutMsal));
 
@@ -91,6 +127,20 @@ function ensureSdkAvailability() {
   }
   if (!window.PptxGenJS) {
     logStatus("PptxGenJS is unavailable. Check CDN loading.", "error");
+  }
+}
+
+function getSelectedCloudProfile() {
+  const cloudKey = dom.cloudEnvironmentInput?.value || "commercial";
+  return cloudProfiles[cloudKey] || cloudProfiles.commercial;
+}
+
+function applyCloudDefaults(force) {
+  const profile = getSelectedCloudProfile();
+  const currentValue = (dom.scopesInput?.value || "").trim();
+
+  if (force || !currentValue || allDefaultScopes.has(currentValue)) {
+    dom.scopesInput.value = profile.defaultScope;
   }
 }
 
@@ -154,12 +204,13 @@ async function ensureMsalApp() {
     throw new Error("Tenant ID and Client ID are required for MSAL auth.");
   }
 
-  const configKey = `${tenantId}|${clientId}`;
+  const cloudProfile = getSelectedCloudProfile();
+  const configKey = `${tenantId}|${clientId}|${cloudProfile.id}|${cloudProfile.authorityBase}`;
   if (!state.msalApp || state.msalConfigKey !== configKey) {
     state.msalApp = new window.msal.PublicClientApplication({
       auth: {
         clientId,
-        authority: `https://login.microsoftonline.com/${tenantId}`,
+        authority: `${cloudProfile.authorityBase}/${tenantId}`,
         redirectUri: window.location.href.split("#")[0],
       },
       cache: {
@@ -190,7 +241,7 @@ async function ensureMsalApp() {
 function readMsalScopes() {
   const raw = dom.scopesInput.value.trim();
   if (!raw) {
-    return ["https://analysis.windows.net/powerbi/api/Report.Read.All"];
+    return [getSelectedCloudProfile().defaultScope];
   }
   return raw
     .split(/[\s,]+/)

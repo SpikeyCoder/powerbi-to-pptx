@@ -50,8 +50,19 @@ Open [http://localhost:8080](http://localhost:8080).
 4. In the app, choose **Sign in with Azure AD (MSAL)** and provide:
    - Tenant ID
    - Client ID
+   - Cloud Environment
    - Scopes
 5. Click **Sign in**.
+
+### Sovereign cloud values
+
+Use the **Cloud Environment** selector to apply the correct authority/scopes for your cloud:
+
+- Commercial: `https://analysis.windows.net/powerbi/api/Report.Read.All`
+- US Gov GCC: `https://analysis.usgovcloudapi.net/powerbi/api/Report.Read.All`
+- US Gov GCC High: `https://high.analysis.usgovcloudapi.net/powerbi/api/Report.Read.All`
+- US Gov DoD: `https://mil.analysis.usgovcloudapi.net/powerbi/api/Report.Read.All`
+- China: `https://analysis.chinacloudapi.cn/powerbi/api/Report.Read.All`
 
 ### Important security note
 

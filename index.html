@@ -58,6 +58,15 @@
             <label for="clientIdInput">Azure App Client ID</label>
             <input id="clientIdInput" type="text" placeholder="Application (client) ID" />
 
+            <label for="cloudEnvironmentInput">Cloud Environment</label>
+            <select id="cloudEnvironmentInput">
+              <option value="commercial" selected>Commercial</option>
+              <option value="gcc">US Gov GCC</option>
+              <option value="gccHigh">US Gov GCC High</option>
+              <option value="dod">US Gov DoD</option>
+              <option value="china">China</option>
+            </select>
+
             <label for="scopesInput">Scopes (space-separated)</label>
             <input
               id="scopesInput"
