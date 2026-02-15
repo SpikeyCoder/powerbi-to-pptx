@@ -12,6 +12,8 @@ Client-side JavaScript app that embeds a Power BI report, lets users pick report
 - Exports selected visuals as images via **`exportVisualAsImage`** and inserts each image into a slide.
 - Builds `.pptx` in-browser with **PptxGenJS**.
 - Includes a **Demo Mode** that generates mock visuals for deck layout testing without authentication.
+- Uses an executive-oriented deck structure (cover, summary, and insight callouts per visual slide).
+- Applies `D-DIN` as the presentation font for all generated slide text.
 - Preserves visual aspect ratio from Power BI layout metadata and auto-generates slide titles from visual/page metadata.
 
 ## Project files
@@ -110,3 +112,7 @@ GitHub Pages has no backend runtime. Do **not** place client secrets in this app
 - [Power BI JavaScript SDK](https://learn.microsoft.com/javascript/api/overview/powerbi/)
 - [PptxGenJS](https://gitbrent.github.io/PptxGenJS/)
 - [MSAL Browser](https://github.com/AzureAD/microsoft-authentication-library-for-js/tree/dev/lib/msal-browser)
+
+## D-DIN font note
+
+The generated PPTX sets slide text to `D-DIN`. For exact rendering, `D-DIN` must be installed on the machine opening the deck in PowerPoint. Visual images exported from Power BI keep the font styling from the source report image.

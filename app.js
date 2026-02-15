@@ -19,6 +19,9 @@ const layoutDimensions = {
   LAYOUT_STANDARD: { w: 10, h: 7.5 },
 };
 
+const DECK_FONT_FAMILY = "D-DIN";
+const DECK_CANVAS_FONT_STACK = '"D-DIN", Arial, sans-serif';
+
 const cloudProfiles = {
   commercial: {
     id: "commercial",
@@ -740,12 +743,16 @@ async function generateDeck() {
   const layout = dom.slideLayoutInput.value || "LAYOUT_WIDE";
   const dimensions = layoutDimensions[layout] || layoutDimensions.LAYOUT_WIDE;
   const imageScale = clampNumber(parseFloat(dom.imageScaleInput.value), 1, 4, 2);
+  const deckTitle = dom.deckTitleInput.value.trim() || "Power BI Executive Brief";
 
   pptx.layout = layout;
   pptx.author = "Power BI PPTX Generator";
   pptx.company = "Power BI";
-  pptx.subject = "Automated visual export";
-  pptx.title = dom.deckTitleInput.value.trim() || "Power BI Deck";
+  pptx.subject = "Executive briefing";
+  pptx.title = deckTitle;
+
+  addExecutiveCoverSlide(pptx, dimensions, deckTitle, selected.length, state.demoMode);
+  addExecutiveSummarySlide(pptx, dimensions, selected);
 
   let activePageName = "";
 
@@ -762,20 +769,214 @@ async function generateDeck() {
     }
 
     const imageData = await getVisualImageData(item.page, item.visual, imageScale);
-    addSlideForVisual(pptx, dimensions, item, imageData, dom.includePageNameInTitleInput.checked);
+    addSlideForVisual(
+      pptx,
+      dimensions,
+      item,
+      imageData,
+      dom.includePageNameInTitleInput.checked,
+      index + 1,
+      selected.length
+    );
   }
 
-  const prefix = sanitizeFileName(dom.deckTitleInput.value.trim() || "powerbi-export");
+  const prefix = sanitizeFileName(deckTitle || "powerbi-executive-brief");
   const fileName = `${prefix}-${createTimestampSlug()}.pptx`;
 
   await pptx.writeFile({ fileName });
   logStatus(`Deck generated: ${fileName}`, "success");
 }
 
-function addSlideForVisual(pptx, dimensions, item, imageData, includePageName) {
+function addExecutiveCoverSlide(pptx, dimensions, deckTitle, selectedCount, demoMode) {
+  const slide = pptx.addSlide();
+
+  slide.background = { color: "F4F8FC" };
+
+  slide.addShape(pptx.ShapeType.rect, {
+    x: 0,
+    y: 0,
+    w: dimensions.w,
+    h: 0.48,
+    fill: { color: "10324A" },
+    line: { color: "10324A", pt: 0 },
+  });
+
+  slide.addShape(pptx.ShapeType.roundRect, {
+    x: 0.55,
+    y: 1.02,
+    w: dimensions.w - 1.1,
+    h: 4.95,
+    fill: { color: "FFFFFF", transparency: 0 },
+    line: { color: "D3E0EB", pt: 1 },
+    rectRadius: 0.08,
+  });
+
+  slide.addText("Executive Briefing Deck", {
+    x: 0.8,
+    y: 1.36,
+    w: dimensions.w - 1.6,
+    h: 0.35,
+    fontFace: DECK_FONT_FAMILY,
+    color: "5A738B",
+    fontSize: 16,
+    bold: true,
+    charSpace: 1,
+  });
+
+  slide.addText(deckTitle, {
+    x: 0.8,
+    y: 1.88,
+    w: dimensions.w - 1.6,
+    h: 1.12,
+    fontFace: DECK_FONT_FAMILY,
+    color: "152F46",
+    bold: true,
+    fontSize: 35,
+    fit: "resize",
+    valign: "top",
+  });
+
+  const modeLabel = demoMode ? "DEMO MODE" : "LIVE POWER BI";
+  const generatedOn = new Date().toLocaleString();
+  const summaryLine = `Slides with visuals: ${selectedCount} | Source mode: ${modeLabel}`;
+
+  slide.addText(summaryLine, {
+    x: 0.8,
+    y: 3.35,
+    w: dimensions.w - 1.6,
+    h: 0.35,
+    fontFace: DECK_FONT_FAMILY,
+    color: "3E5B74",
+    fontSize: 13,
+    bold: true,
+  });
+
+  slide.addText(`Generated ${generatedOn}`, {
+    x: 0.8,
+    y: 3.76,
+    w: dimensions.w - 1.6,
+    h: 0.3,
+    fontFace: DECK_FONT_FAMILY,
+    color: "5F7890",
+    fontSize: 11,
+  });
+
+  slide.addText("Confidential - Executive audience", {
+    x: 0.8,
+    y: dimensions.h - 0.56,
+    w: dimensions.w - 1.6,
+    h: 0.2,
+    fontFace: DECK_FONT_FAMILY,
+    color: "7B8FA4",
+    fontSize: 10,
+    italic: true,
+  });
+}
+
+function addExecutiveSummarySlide(pptx, dimensions, selected) {
+  const slide = pptx.addSlide();
+
+  slide.background = { color: "F8FBFE" };
+
+  slide.addText("Executive Summary", {
+    x: 0.52,
+    y: 0.28,
+    w: dimensions.w - 1.04,
+    h: 0.42,
+    fontFace: DECK_FONT_FAMILY,
+    color: "1C3750",
+    fontSize: 24,
+    bold: true,
+  });
+
+  const pageCounts = new Map();
+  const typeCounts = new Map();
+  selected.forEach((item) => {
+    const pageName = item.page.displayName || item.page.name;
+    const typeName = item.visual.type || "visual";
+    pageCounts.set(pageName, (pageCounts.get(pageName) || 0) + 1);
+    typeCounts.set(typeName, (typeCounts.get(typeName) || 0) + 1);
+  });
+
+  const pageHighlights = [...pageCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([name, count]) => `${name}: ${count}`)
+    .join(" | ");
+
+  const topTypes = [...typeCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([name, count]) => `${name} (${count})`)
+    .join(", ");
+
+  const summaryPoints = [
+    `Portfolio includes ${selected.length} selected visuals across ${pageCounts.size} report pages.`,
+    `Primary visual mix: ${topTypes || "n/a"}.`,
+    `Highest concentration pages: ${pageHighlights || "n/a"}.`,
+    "Each following slide includes a single visual, context metadata, and an executive takeaway.",
+  ];
+
+  slide.addShape(pptx.ShapeType.roundRect, {
+    x: 0.52,
+    y: 0.92,
+    w: dimensions.w - 1.04,
+    h: 5.98,
+    fill: { color: "FFFFFF", transparency: 0 },
+    line: { color: "D3E1ED", pt: 1 },
+    rectRadius: 0.06,
+  });
+
+  summaryPoints.forEach((line, idx) => {
+    slide.addText(`- ${line}`, {
+      x: 0.8,
+      y: 1.26 + idx * 0.88,
+      w: dimensions.w - 1.6,
+      h: 0.52,
+      fontFace: DECK_FONT_FAMILY,
+      color: "29455F",
+      fontSize: 14,
+      bold: idx < 2,
+      fit: "shrink",
+    });
+  });
+}
+
+function buildExecutiveTakeaway(item) {
+  const type = String(item.visual.type || "").toLowerCase();
+
+  if (type.includes("line") || type.includes("area")) {
+    return "Trend direction and inflection points should guide near-term planning and resourcing decisions.";
+  }
+
+  if (type.includes("bar") || type.includes("column") || type.includes("waterfall")) {
+    return "Ranking and contribution differences highlight where leadership attention can improve outcomes fastest.";
+  }
+
+  if (type.includes("map")) {
+    return "Regional dispersion suggests localized performance variance; prioritize top and underperforming territories.";
+  }
+
+  if (type.includes("table")) {
+    return "Detailed record-level view supports risk validation and targeted follow-up on highest-value accounts.";
+  }
+
+  if (type.includes("scatter")) {
+    return "Outliers indicate potential opportunity and risk clusters that merit executive review and mitigation plans.";
+  }
+
+  if (type.includes("card") || type.includes("kpi")) {
+    return "KPI headline should be tracked against target and variance drivers in the immediate decision cycle.";
+  }
+
+  return "Visual signals a meaningful performance pattern; align owners and actions to confirm underlying drivers.";
+}
+
+function addSlideForVisual(pptx, dimensions, item, imageData, includePageName, slideIndex, totalSlides) {
   const slide = pptx.addSlide();
   const margin = 0.35;
-  const titleBandHeight = 0.9;
+  const titleBandHeight = 0.96;
+  const calloutHeight = 0.9;
   const framePadding = 0.1;
 
   const titleText = includePageName
@@ -788,38 +989,50 @@ function addSlideForVisual(pptx, dimensions, item, imageData, includePageName) {
     x: margin,
     y: 0.18,
     w: dimensions.w - margin * 2,
-    h: 0.52,
+    h: 0.56,
     fill: { color: "E8F1F8", transparency: 8 },
     line: { color: "D2E0EC", pt: 1 },
   });
 
   slide.addText(titleText, {
     x: margin + 0.12,
-    y: 0.29,
+    y: 0.28,
     w: dimensions.w - margin * 2 - 0.24,
-    h: 0.22,
-    fontFace: "Aptos",
+    h: 0.24,
+    fontFace: DECK_FONT_FAMILY,
     color: "17324A",
     bold: true,
     fontSize: 14,
     fit: "shrink",
   });
 
-  slide.addText(`${item.visual.type || "visual"} - ${item.visual.name}`, {
+  slide.addText(`${item.visual.type || "visual"} | ${item.visual.name}`, {
     x: margin + 0.12,
     y: 0.52,
-    w: dimensions.w - margin * 2 - 0.24,
+    w: dimensions.w - margin * 2 - 1.9,
     h: 0.13,
-    fontFace: "Aptos",
+    fontFace: DECK_FONT_FAMILY,
     color: "43607A",
     fontSize: 9,
+  });
+
+  slide.addText(`Slide ${slideIndex + 2} of ${totalSlides + 2}`, {
+    x: dimensions.w - margin - 1.6,
+    y: 0.52,
+    w: 1.45,
+    h: 0.13,
+    align: "right",
+    fontFace: DECK_FONT_FAMILY,
+    color: "5B7792",
+    fontSize: 9,
+    bold: true,
   });
 
   const imageContainer = {
     x: margin,
     y: titleBandHeight,
     w: dimensions.w - margin * 2,
-    h: dimensions.h - titleBandHeight - margin,
+    h: dimensions.h - titleBandHeight - margin - calloutHeight,
   };
 
   const visualAspectRatio = getVisualAspectRatio(item.visual);
@@ -840,6 +1053,41 @@ function addSlideForVisual(pptx, dimensions, item, imageData, includePageName) {
     y: fitted.y,
     w: fitted.w,
     h: fitted.h,
+  });
+
+  const takeaway = buildExecutiveTakeaway(item);
+
+  slide.addShape(pptx.ShapeType.roundRect, {
+    x: margin,
+    y: dimensions.h - margin - calloutHeight,
+    w: dimensions.w - margin * 2,
+    h: calloutHeight,
+    fill: { color: "EEF5FB", transparency: 0 },
+    line: { color: "CDDFED", pt: 1 },
+    rectRadius: 0.05,
+  });
+
+  slide.addText("Executive takeaway", {
+    x: margin + 0.14,
+    y: dimensions.h - margin - calloutHeight + 0.1,
+    w: dimensions.w - margin * 2 - 0.28,
+    h: 0.18,
+    fontFace: DECK_FONT_FAMILY,
+    color: "1A3B57",
+    bold: true,
+    fontSize: 10,
+    charSpace: 0.5,
+  });
+
+  slide.addText(takeaway, {
+    x: margin + 0.14,
+    y: dimensions.h - margin - calloutHeight + 0.31,
+    w: dimensions.w - margin * 2 - 0.28,
+    h: 0.44,
+    fontFace: DECK_FONT_FAMILY,
+    color: "35506A",
+    fontSize: 10,
+    fit: "shrink",
   });
 }
 
@@ -1168,11 +1416,11 @@ function generateDemoVisualAsImage(page, visual, scaleMultiplier) {
   ctx.fillRect(pad, pad, width - pad * 2, titleArea);
 
   ctx.fillStyle = "#17324a";
-  ctx.font = `700 ${Math.max(18, Math.round(width * 0.024))}px DM Sans`;
+  ctx.font = `700 ${Math.max(18, Math.round(width * 0.024))}px ${DECK_CANVAS_FONT_STACK}`;
   ctx.fillText(visual.title || visual.name, pad + 16, pad + Math.round(titleArea * 0.45));
 
   ctx.fillStyle = "#4a6178";
-  ctx.font = `500 ${Math.max(12, Math.round(width * 0.014))}px DM Sans`;
+  ctx.font = `500 ${Math.max(12, Math.round(width * 0.014))}px ${DECK_CANVAS_FONT_STACK}`;
   ctx.fillText(`${page.displayName || page.name} - ${visual.type || "visual"}`, pad + 16, pad + Math.round(titleArea * 0.75));
 
   const chartX = pad;
@@ -1287,7 +1535,7 @@ function drawDemoDonutChart(ctx, x, y, w, h, palette) {
   });
 
   ctx.fillStyle = "#334e68";
-  ctx.font = `700 ${Math.max(16, Math.round(w * 0.06))}px DM Sans`;
+  ctx.font = `700 ${Math.max(16, Math.round(w * 0.06))}px ${DECK_CANVAS_FONT_STACK}`;
   ctx.fillText("62%", cx - r * 0.3, cy + 8);
 }
 
@@ -1370,11 +1618,11 @@ function drawDemoKpiCard(ctx, x, y, w, h, palette) {
   ctx.fillRect(x + 18, y + 18, w - 36, h - 36);
 
   ctx.fillStyle = palette.primary;
-  ctx.font = `700 ${Math.max(26, Math.round(w * 0.1))}px DM Sans`;
+  ctx.font = `700 ${Math.max(26, Math.round(w * 0.1))}px ${DECK_CANVAS_FONT_STACK}`;
   ctx.fillText("$12.4M", x + 36, y + h * 0.52);
 
   ctx.fillStyle = "#4f6a83";
-  ctx.font = `600 ${Math.max(14, Math.round(w * 0.035))}px DM Sans`;
+  ctx.font = `600 ${Math.max(14, Math.round(w * 0.035))}px ${DECK_CANVAS_FONT_STACK}`;
   ctx.fillText("Year-to-date revenue", x + 36, y + h * 0.68);
 }
 
