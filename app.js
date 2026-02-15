@@ -11,6 +11,7 @@ const state = {
   msalToken: "",
   tokenExpiresOn: null,
   demoMode: false,
+  templateAssets: null,
   busy: false,
 };
 
@@ -21,6 +22,18 @@ const layoutDimensions = {
 
 const DECK_FONT_FAMILY = "D-DIN";
 const DECK_CANVAS_FONT_STACK = '"D-DIN", Arial, sans-serif';
+
+const SPACE_TEMPLATE_ASSET_PATHS = {
+  coverBackground: "assets/template-spacex/network-globe.jpg",
+  slideBackground: "assets/template-spacex/earth-horizon.png",
+  logoMark: "assets/template-spacex/x-mark.png",
+  logoWordmark: "assets/template-spacex/starlink-wordmark.png",
+  iconGlobal: "assets/template-spacex/icon-global.png",
+  iconPerformance: "assets/template-spacex/icon-performance.png",
+  iconActivation: "assets/template-spacex/icon-activation.png",
+  iconSecurity: "assets/template-spacex/icon-security.png",
+  iconReliability: "assets/template-spacex/icon-reliability.png",
+};
 
 const cloudProfiles = {
   commercial: {
@@ -744,6 +757,7 @@ async function generateDeck() {
   const dimensions = layoutDimensions[layout] || layoutDimensions.LAYOUT_WIDE;
   const imageScale = clampNumber(parseFloat(dom.imageScaleInput.value), 1, 4, 2);
   const deckTitle = dom.deckTitleInput.value.trim() || "Power BI Executive Brief";
+  const templateAssets = await ensureTemplateAssetsLoaded();
 
   pptx.layout = layout;
   pptx.author = "Power BI PPTX Generator";
@@ -751,8 +765,8 @@ async function generateDeck() {
   pptx.subject = "Executive briefing";
   pptx.title = deckTitle;
 
-  addExecutiveCoverSlide(pptx, dimensions, deckTitle, selected.length, state.demoMode);
-  addExecutiveSummarySlide(pptx, dimensions, selected);
+  addExecutiveCoverSlide(pptx, dimensions, deckTitle, selected.length, state.demoMode, templateAssets);
+  addExecutiveSummarySlide(pptx, dimensions, selected, templateAssets);
 
   let activePageName = "";
 
@@ -776,7 +790,8 @@ async function generateDeck() {
       imageData,
       dom.includePageNameInTitleInput.checked,
       index + 1,
-      selected.length
+      selected.length,
+      templateAssets
     );
   }
 
@@ -787,110 +802,75 @@ async function generateDeck() {
   logStatus(`Deck generated: ${fileName}`, "success");
 }
 
-function addExecutiveCoverSlide(pptx, dimensions, deckTitle, selectedCount, demoMode) {
-  const slide = pptx.addSlide();
+function addTemplateBackground(slide, dimensions, imageData, overlayTransparency = 30) {
+  slide.background = { color: "000000" };
 
-  slide.background = { color: "F4F8FC" };
+  if (imageData) {
+    slide.addImage({
+      data: imageData,
+      x: 0,
+      y: 0,
+      w: dimensions.w,
+      h: dimensions.h,
+    });
+  }
 
-  slide.addShape(pptx.ShapeType.rect, {
+  slide.addShape("rect", {
     x: 0,
     y: 0,
     w: dimensions.w,
-    h: 0.48,
-    fill: { color: "10324A" },
-    line: { color: "10324A", pt: 0 },
-  });
-
-  slide.addShape(pptx.ShapeType.roundRect, {
-    x: 0.55,
-    y: 1.02,
-    w: dimensions.w - 1.1,
-    h: 4.95,
-    fill: { color: "FFFFFF", transparency: 0 },
-    line: { color: "D3E0EB", pt: 1 },
-    rectRadius: 0.08,
-  });
-
-  slide.addText("Executive Briefing Deck", {
-    x: 0.8,
-    y: 1.36,
-    w: dimensions.w - 1.6,
-    h: 0.35,
-    fontFace: DECK_FONT_FAMILY,
-    color: "5A738B",
-    fontSize: 16,
-    bold: true,
-    charSpace: 1,
-  });
-
-  slide.addText(deckTitle, {
-    x: 0.8,
-    y: 1.88,
-    w: dimensions.w - 1.6,
-    h: 1.12,
-    fontFace: DECK_FONT_FAMILY,
-    color: "152F46",
-    bold: true,
-    fontSize: 35,
-    fit: "resize",
-    valign: "top",
-  });
-
-  const modeLabel = demoMode ? "DEMO MODE" : "LIVE POWER BI";
-  const generatedOn = new Date().toLocaleString();
-  const summaryLine = `Slides with visuals: ${selectedCount} | Source mode: ${modeLabel}`;
-
-  slide.addText(summaryLine, {
-    x: 0.8,
-    y: 3.35,
-    w: dimensions.w - 1.6,
-    h: 0.35,
-    fontFace: DECK_FONT_FAMILY,
-    color: "3E5B74",
-    fontSize: 13,
-    bold: true,
-  });
-
-  slide.addText(`Generated ${generatedOn}`, {
-    x: 0.8,
-    y: 3.76,
-    w: dimensions.w - 1.6,
-    h: 0.3,
-    fontFace: DECK_FONT_FAMILY,
-    color: "5F7890",
-    fontSize: 11,
-  });
-
-  slide.addText("Confidential - Executive audience", {
-    x: 0.8,
-    y: dimensions.h - 0.56,
-    w: dimensions.w - 1.6,
-    h: 0.2,
-    fontFace: DECK_FONT_FAMILY,
-    color: "7B8FA4",
-    fontSize: 10,
-    italic: true,
+    h: dimensions.h,
+    fill: { color: "000000", transparency: clampNumber(overlayTransparency, 0, 100, 30) },
+    line: { color: "000000", pt: 0 },
   });
 }
 
-function addExecutiveSummarySlide(pptx, dimensions, selected) {
-  const slide = pptx.addSlide();
-
-  slide.background = { color: "F8FBFE" };
-
-  slide.addText("Executive Summary", {
-    x: 0.52,
-    y: 0.28,
-    w: dimensions.w - 1.04,
-    h: 0.42,
-    fontFace: DECK_FONT_FAMILY,
-    color: "1C3750",
-    fontSize: 24,
-    bold: true,
+function addTemplateFooter(slide, dimensions, templateAssets, footerLabel = "Confidential - Executive audience") {
+  slide.addShape("line", {
+    x: 0.44,
+    y: dimensions.h - 0.42,
+    w: dimensions.w - 0.88,
+    h: 0,
+    line: { color: "7DA8CF", pt: 0.6, transparency: 35 },
   });
 
+  if (templateAssets.logoMark) {
+    slide.addImage({
+      data: templateAssets.logoMark,
+      x: 0.48,
+      y: dimensions.h - 0.34,
+      w: 0.22,
+      h: 0.22,
+    });
+  }
+
+  if (templateAssets.logoWordmark) {
+    slide.addImage({
+      data: templateAssets.logoWordmark,
+      x: dimensions.w - 1.82,
+      y: dimensions.h - 0.335,
+      w: 1.34,
+      h: 0.22,
+    });
+  }
+
+  slide.addText(footerLabel, {
+    x: 0.82,
+    y: dimensions.h - 0.31,
+    w: dimensions.w - 2.7,
+    h: 0.2,
+    fontFace: DECK_FONT_FAMILY,
+    color: "D7E7F6",
+    fontSize: 9,
+    italic: true,
+    valign: "mid",
+  });
+}
+
+function buildSummaryMetrics(selected) {
   const pageCounts = new Map();
   const typeCounts = new Map();
+
   selected.forEach((item) => {
     const pageName = item.page.displayName || item.page.name;
     const typeName = item.visual.type || "visual";
@@ -898,48 +878,274 @@ function addExecutiveSummarySlide(pptx, dimensions, selected) {
     typeCounts.set(typeName, (typeCounts.get(typeName) || 0) + 1);
   });
 
-  const pageHighlights = [...pageCounts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 4)
-    .map(([name, count]) => `${name}: ${count}`)
-    .join(" | ");
+  const topType = [...typeCounts.entries()].sort((a, b) => b[1] - a[1])[0] || ["n/a", 0];
+  const topPage = [...pageCounts.entries()].sort((a, b) => b[1] - a[1])[0] || ["n/a", 0];
 
-  const topTypes = [...typeCounts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 4)
-    .map(([name, count]) => `${name} (${count})`)
-    .join(", ");
+  return {
+    pageCounts,
+    typeCounts,
+    cards: [
+      {
+        heading: "Selected visuals",
+        value: String(selected.length),
+        detail: `Curated across ${pageCounts.size} report pages`,
+        iconKey: "iconGlobal",
+      },
+      {
+        heading: "Primary visual",
+        value: topType[0],
+        detail: `${topType[1]} slide${topType[1] === 1 ? "" : "s"} in current selection`,
+        iconKey: "iconPerformance",
+      },
+      {
+        heading: "Top focus page",
+        value: topPage[0],
+        detail: `${topPage[1]} visual${topPage[1] === 1 ? "" : "s"} selected`,
+        iconKey: "iconActivation",
+      },
+      {
+        heading: "Export mode",
+        value: state.demoMode ? "Demo" : "Live Power BI",
+        detail: "High-resolution image export for executive review",
+        iconKey: "iconSecurity",
+      },
+    ],
+  };
+}
 
-  const summaryPoints = [
-    `Portfolio includes ${selected.length} selected visuals across ${pageCounts.size} report pages.`,
-    `Primary visual mix: ${topTypes || "n/a"}.`,
-    `Highest concentration pages: ${pageHighlights || "n/a"}.`,
-    "Each following slide includes a single visual, context metadata, and an executive takeaway.",
-  ];
+async function ensureTemplateAssetsLoaded() {
+  if (state.templateAssets) {
+    return state.templateAssets;
+  }
+
+  const entries = await Promise.all(
+    Object.entries(SPACE_TEMPLATE_ASSET_PATHS).map(async ([key, assetPath]) => {
+      const dataUrl = await loadTemplateAsset(assetPath);
+      return [key, dataUrl];
+    })
+  );
+
+  state.templateAssets = Object.fromEntries(entries);
+  return state.templateAssets;
+}
+
+async function loadTemplateAsset(assetPath) {
+  try {
+    const response = await fetch(assetPath, { cache: "force-cache" });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const blob = await response.blob();
+    return blobToDataUrl(blob);
+  } catch (error) {
+    logStatus(`Template asset unavailable (${assetPath}): ${extractErrorMessage(error)}`, "error");
+    return "";
+  }
+}
+
+function addExecutiveCoverSlide(pptx, dimensions, deckTitle, selectedCount, demoMode, templateAssets) {
+  const slide = pptx.addSlide();
+
+  addTemplateBackground(slide, dimensions, templateAssets.coverBackground || templateAssets.slideBackground, 16);
 
   slide.addShape(pptx.ShapeType.roundRect, {
-    x: 0.52,
-    y: 0.92,
-    w: dimensions.w - 1.04,
-    h: 5.98,
-    fill: { color: "FFFFFF", transparency: 0 },
-    line: { color: "D3E1ED", pt: 1 },
-    rectRadius: 0.06,
+    x: 0.6,
+    y: 0.72,
+    w: dimensions.w - 1.2,
+    h: 5.9,
+    fill: { color: "000000", transparency: 36 },
+    line: { color: "8AB2D6", pt: 0.7, transparency: 42 },
+    rectRadius: 0.04,
   });
 
-  summaryPoints.forEach((line, idx) => {
-    slide.addText(`- ${line}`, {
-      x: 0.8,
-      y: 1.26 + idx * 0.88,
-      w: dimensions.w - 1.6,
-      h: 0.52,
+  slide.addText("EXECUTIVE BRIEFING DECK", {
+    x: 0.9,
+    y: 1.02,
+    w: dimensions.w - 1.8,
+    h: 0.28,
+    fontFace: DECK_FONT_FAMILY,
+    color: "DCEEFF",
+    fontSize: 13,
+    bold: true,
+    charSpace: 1.2,
+  });
+
+  slide.addText(deckTitle, {
+    x: 0.9,
+    y: 1.52,
+    w: dimensions.w - 1.8,
+    h: 1.45,
+    fontFace: DECK_FONT_FAMILY,
+    color: "FFFFFF",
+    bold: true,
+    fontSize: 38,
+    fit: "resize",
+    valign: "top",
+  });
+
+  const modeLabel = demoMode ? "DEMO MODE" : "LIVE POWER BI";
+  const generatedOn = new Date().toLocaleString();
+
+  slide.addShape(pptx.ShapeType.roundRect, {
+    x: 0.9,
+    y: 3.42,
+    w: dimensions.w - 1.8,
+    h: 1.8,
+    fill: { color: "03121F", transparency: 20 },
+    line: { color: "6E9DC8", pt: 0.6, transparency: 40 },
+    rectRadius: 0.03,
+  });
+
+  slide.addText(`Slides with visuals: ${selectedCount}`, {
+    x: 1.14,
+    y: 3.74,
+    w: dimensions.w - 2.28,
+    h: 0.32,
+    fontFace: DECK_FONT_FAMILY,
+    color: "FFFFFF",
+    fontSize: 16,
+    bold: true,
+  });
+
+  slide.addText(`Source mode: ${modeLabel}`, {
+    x: 1.14,
+    y: 4.14,
+    w: dimensions.w - 2.28,
+    h: 0.28,
+    fontFace: DECK_FONT_FAMILY,
+    color: "D8E9F9",
+    fontSize: 12,
+  });
+
+  slide.addText(`Generated ${generatedOn}`, {
+    x: 1.14,
+    y: 4.49,
+    w: dimensions.w - 2.28,
+    h: 0.24,
+    fontFace: DECK_FONT_FAMILY,
+    color: "C3DBF2",
+    fontSize: 10,
+  });
+
+  addTemplateFooter(slide, dimensions, templateAssets);
+}
+
+function addExecutiveSummarySlide(pptx, dimensions, selected, templateAssets) {
+  const slide = pptx.addSlide();
+  const summary = buildSummaryMetrics(selected);
+
+  addTemplateBackground(slide, dimensions, templateAssets.slideBackground, 35);
+
+  slide.addText("EXECUTIVE SNAPSHOT", {
+    x: 0.72,
+    y: 0.42,
+    w: dimensions.w - 1.44,
+    h: 0.35,
+    fontFace: DECK_FONT_FAMILY,
+    color: "DCEEFF",
+    fontSize: 13,
+    bold: true,
+    charSpace: 1,
+  });
+
+  slide.addText("Selection Overview", {
+    x: 0.72,
+    y: 0.77,
+    w: dimensions.w - 1.44,
+    h: 0.5,
+    fontFace: DECK_FONT_FAMILY,
+    color: "FFFFFF",
+    fontSize: 29,
+    bold: true,
+  });
+
+  const gutter = 0.34;
+  const gridX = 0.72;
+  const gridY = 1.42;
+  const gridW = dimensions.w - gridX * 2;
+  const cardW = (gridW - gutter) / 2;
+  const cardH = 2.22;
+
+  summary.cards.forEach((card, idx) => {
+    const col = idx % 2;
+    const row = Math.floor(idx / 2);
+    const x = gridX + col * (cardW + gutter);
+    const y = gridY + row * (cardH + 0.28);
+
+    slide.addShape(pptx.ShapeType.roundRect, {
+      x,
+      y,
+      w: cardW,
+      h: cardH,
+      fill: { color: "020B15", transparency: 24 },
+      line: { color: "7AA2C6", pt: 0.6, transparency: 45 },
+      rectRadius: 0.04,
+    });
+
+    const iconData = templateAssets[card.iconKey] || templateAssets.iconReliability || "";
+    if (iconData) {
+      slide.addImage({
+        data: iconData,
+        x: x + cardW - 0.66,
+        y: y + 0.18,
+        w: 0.48,
+        h: 0.48,
+      });
+    }
+
+    slide.addText(card.heading.toUpperCase(), {
+      x: x + 0.18,
+      y: y + 0.18,
+      w: cardW - 0.86,
+      h: 0.2,
       fontFace: DECK_FONT_FAMILY,
-      color: "29455F",
-      fontSize: 14,
-      bold: idx < 2,
+      color: "C9DFF3",
+      fontSize: 10,
+      bold: true,
+      charSpace: 0.7,
+    });
+
+    slide.addText(card.value, {
+      x: x + 0.18,
+      y: y + 0.56,
+      w: cardW - 0.36,
+      h: 0.84,
+      fontFace: DECK_FONT_FAMILY,
+      color: "FFFFFF",
+      fontSize: 27,
+      bold: true,
+      fit: "resize",
+      valign: "mid",
+    });
+
+    slide.addText(card.detail, {
+      x: x + 0.18,
+      y: y + 1.56,
+      w: cardW - 0.36,
+      h: 0.44,
+      fontFace: DECK_FONT_FAMILY,
+      color: "D4E6F8",
+      fontSize: 10,
       fit: "shrink",
+      valign: "top",
     });
   });
+
+  slide.addText(
+    "Each following slide contains one selected Power BI visual, an executive title, and a strategic takeaway.",
+    {
+      x: 0.72,
+      y: dimensions.h - 0.94,
+      w: dimensions.w - 1.44,
+      h: 0.28,
+      fontFace: DECK_FONT_FAMILY,
+      color: "D8E9F9",
+      fontSize: 10,
+      italic: true,
+    }
+  );
+
+  addTemplateFooter(slide, dimensions, templateAssets);
 }
 
 function buildExecutiveTakeaway(item) {
@@ -972,79 +1178,106 @@ function buildExecutiveTakeaway(item) {
   return "Visual signals a meaningful performance pattern; align owners and actions to confirm underlying drivers.";
 }
 
-function addSlideForVisual(pptx, dimensions, item, imageData, includePageName, slideIndex, totalSlides) {
+function addSlideForVisual(
+  pptx,
+  dimensions,
+  item,
+  imageData,
+  includePageName,
+  slideIndex,
+  totalSlides,
+  templateAssets
+) {
   const slide = pptx.addSlide();
-  const margin = 0.35;
-  const titleBandHeight = 0.96;
-  const calloutHeight = 0.9;
-  const framePadding = 0.1;
+  const margin = 0.44;
+  const topBandY = 0.3;
+  const topBandH = 0.72;
+  const panelY = 1.08;
+  const panelBottomSpace = 1.7;
 
   const titleText = includePageName
     ? `${item.page.displayName || item.page.name} - ${item.visual.title || item.visual.name}`
     : item.visual.title || item.visual.name;
 
-  slide.background = { color: "F7FAFD" };
+  addTemplateBackground(slide, dimensions, templateAssets.slideBackground, 35);
 
-  slide.addShape(pptx.ShapeType.rect, {
+  slide.addShape(pptx.ShapeType.roundRect, {
     x: margin,
-    y: 0.18,
+    y: topBandY,
     w: dimensions.w - margin * 2,
-    h: 0.56,
-    fill: { color: "E8F1F8", transparency: 8 },
-    line: { color: "D2E0EC", pt: 1 },
+    h: topBandH,
+    fill: { color: "021120", transparency: 18 },
+    line: { color: "7AA8CF", pt: 0.7, transparency: 45 },
+    rectRadius: 0.03,
   });
 
   slide.addText(titleText, {
-    x: margin + 0.12,
-    y: 0.28,
-    w: dimensions.w - margin * 2 - 0.24,
-    h: 0.24,
+    x: margin + 0.18,
+    y: topBandY + 0.13,
+    w: dimensions.w - margin * 2 - 0.36,
+    h: 0.25,
     fontFace: DECK_FONT_FAMILY,
-    color: "17324A",
+    color: "FFFFFF",
     bold: true,
     fontSize: 14,
     fit: "shrink",
   });
 
   slide.addText(`${item.visual.type || "visual"} | ${item.visual.name}`, {
-    x: margin + 0.12,
-    y: 0.52,
-    w: dimensions.w - margin * 2 - 1.9,
-    h: 0.13,
+    x: margin + 0.18,
+    y: topBandY + 0.4,
+    w: dimensions.w - margin * 2 - 2.5,
+    h: 0.16,
     fontFace: DECK_FONT_FAMILY,
-    color: "43607A",
+    color: "D4E7F8",
     fontSize: 9,
   });
 
   slide.addText(`Slide ${slideIndex + 2} of ${totalSlides + 2}`, {
-    x: dimensions.w - margin - 1.6,
-    y: 0.52,
-    w: 1.45,
-    h: 0.13,
+    x: dimensions.w - margin - 2.15,
+    y: topBandY + 0.4,
+    w: 1.96,
+    h: 0.16,
     align: "right",
     fontFace: DECK_FONT_FAMILY,
-    color: "5B7792",
+    color: "D4E7F8",
     fontSize: 9,
     bold: true,
   });
 
-  const imageContainer = {
+  const visualPanel = {
     x: margin,
-    y: titleBandHeight,
+    y: panelY,
     w: dimensions.w - margin * 2,
-    h: dimensions.h - titleBandHeight - margin - calloutHeight,
+    h: dimensions.h - panelY - panelBottomSpace,
   };
 
+  slide.addShape(pptx.ShapeType.roundRect, {
+    x: visualPanel.x,
+    y: visualPanel.y,
+    w: visualPanel.w,
+    h: visualPanel.h,
+    fill: { color: "010C17", transparency: 16 },
+    line: { color: "729CC0", pt: 0.7, transparency: 46 },
+    rectRadius: 0.03,
+  });
+
+  const imageContainer = {
+    x: visualPanel.x + 0.15,
+    y: visualPanel.y + 0.15,
+    w: visualPanel.w - 0.3,
+    h: visualPanel.h - 0.3,
+  };
   const visualAspectRatio = getVisualAspectRatio(item.visual);
   const fitted = fitRect(imageContainer, visualAspectRatio);
 
   slide.addShape(pptx.ShapeType.rect, {
-    x: fitted.x - framePadding,
-    y: fitted.y - framePadding,
-    w: fitted.w + framePadding * 2,
-    h: fitted.h + framePadding * 2,
+    x: fitted.x - 0.05,
+    y: fitted.y - 0.05,
+    w: fitted.w + 0.1,
+    h: fitted.h + 0.1,
     fill: { color: "FFFFFF", transparency: 0 },
-    line: { color: "D5E1ED", pt: 1 },
+    line: { color: "FFFFFF", pt: 0.6, transparency: 30 },
   });
 
   slide.addImage({
@@ -1059,36 +1292,43 @@ function addSlideForVisual(pptx, dimensions, item, imageData, includePageName, s
 
   slide.addShape(pptx.ShapeType.roundRect, {
     x: margin,
-    y: dimensions.h - margin - calloutHeight,
+    y: dimensions.h - 1.2,
     w: dimensions.w - margin * 2,
-    h: calloutHeight,
-    fill: { color: "EEF5FB", transparency: 0 },
-    line: { color: "CDDFED", pt: 1 },
-    rectRadius: 0.05,
+    h: 0.74,
+    fill: { color: "03111F", transparency: 18 },
+    line: { color: "7EA8CB", pt: 0.6, transparency: 44 },
+    rectRadius: 0.03,
   });
 
-  slide.addText("Executive takeaway", {
-    x: margin + 0.14,
-    y: dimensions.h - margin - calloutHeight + 0.1,
-    w: dimensions.w - margin * 2 - 0.28,
-    h: 0.18,
+  slide.addText("EXECUTIVE TAKEAWAY", {
+    x: margin + 0.15,
+    y: dimensions.h - 1.08,
+    w: dimensions.w - margin * 2 - 0.3,
+    h: 0.16,
     fontFace: DECK_FONT_FAMILY,
-    color: "1A3B57",
+    color: "D8EAFE",
     bold: true,
-    fontSize: 10,
-    charSpace: 0.5,
+    fontSize: 9,
+    charSpace: 0.7,
   });
 
   slide.addText(takeaway, {
-    x: margin + 0.14,
-    y: dimensions.h - margin - calloutHeight + 0.31,
-    w: dimensions.w - margin * 2 - 0.28,
-    h: 0.44,
+    x: margin + 0.15,
+    y: dimensions.h - 0.86,
+    w: dimensions.w - margin * 2 - 0.3,
+    h: 0.28,
     fontFace: DECK_FONT_FAMILY,
-    color: "35506A",
+    color: "FFFFFF",
     fontSize: 10,
     fit: "shrink",
   });
+
+  addTemplateFooter(
+    slide,
+    dimensions,
+    templateAssets,
+    `${item.page.displayName || item.page.name} | Confidential - Executive audience`
+  );
 }
 
 async function exportVisualAsImage(page, visual, scaleMultiplier) {

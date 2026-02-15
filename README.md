@@ -12,7 +12,7 @@ Client-side JavaScript app that embeds a Power BI report, lets users pick report
 - Exports selected visuals as images via **`exportVisualAsImage`** and inserts each image into a slide.
 - Builds `.pptx` in-browser with **PptxGenJS**.
 - Includes a **Demo Mode** that generates mock visuals for deck layout testing without authentication.
-- Uses an executive-oriented deck structure (cover, summary, and insight callouts per visual slide).
+- Uses a SpaceX-inspired executive template (dark space background, icon cards, and branded footer treatment) for cover, summary, and visual slides.
 - Applies `D-DIN` as the presentation font for all generated slide text.
 - Preserves visual aspect ratio from Power BI layout metadata and auto-generates slide titles from visual/page metadata.
 
@@ -21,6 +21,7 @@ Client-side JavaScript app that embeds a Power BI report, lets users pick report
 - `/Users/kevinarmstrong/powerbi-pptx-generator/index.html` - UI and CDN dependencies
 - `/Users/kevinarmstrong/powerbi-pptx-generator/styles.css` - styling
 - `/Users/kevinarmstrong/powerbi-pptx-generator/app.js` - embed, selection, export logic
+- `/Users/kevinarmstrong/powerbi-pptx-generator/assets/template-spacex/` - template images and icon assets extracted from `Presentation2.pptx`
 
 ## Run locally
 
