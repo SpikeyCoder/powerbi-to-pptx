@@ -18,7 +18,7 @@
   <body>
     <main class="app-shell">
       <header class="hero">
-        <p class="eyebrow">GitHub Pages Client App</p>
+        <p class="eyebrow">Bitbucket Pages Client App</p>
         <h1>Power BI Report to PowerPoint Deck Generator</h1>
         <p class="hero-copy">
           Embed a report, choose visuals with a checklist, and generate a downloadable
@@ -60,9 +60,9 @@
 
             <label for="cloudEnvironmentInput">Cloud Environment</label>
             <select id="cloudEnvironmentInput">
-              <option value="commercial" selected>Commercial</option>
+              <option value="commercial">Commercial</option>
               <option value="gcc">US Gov GCC</option>
-              <option value="gccHigh">US Gov GCC High</option>
+              <option value="gccHigh" selected>US Gov GCC High</option>
               <option value="dod">US Gov DoD</option>
               <option value="china">China</option>
             </select>
@@ -71,7 +71,7 @@
             <input
               id="scopesInput"
               type="text"
-              value="https://analysis.windows.net/powerbi/api/Report.Read.All"
+              value="https://high.analysis.usgovcloudapi.net/powerbi/api/Report.Read.All"
             />
 
             <div class="button-row compact">

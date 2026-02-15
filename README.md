@@ -1,4 +1,4 @@
-# Power BI PPTX Generator (GitHub Pages)
+# Power BI PPTX Generator (Bitbucket Pages)
 
 Client-side JavaScript app that embeds a Power BI report, lets users pick report pages/visuals, and generates a downloadable PowerPoint deck with one visual per slide.
 
@@ -49,7 +49,7 @@ Open [http://localhost:8080](http://localhost:8080).
 1. Create an Azure App Registration (SPA/public client).
 2. Add your URL as a redirect URI:
    - local: `http://localhost:8080`
-   - GitHub Pages: `https://<your-user>.github.io/<repo>/`
+   - Bitbucket Pages: `https://powerbi-to-pptx.bitbucket.io/`
 3. Grant delegated Power BI permissions (for example `Report.Read.All`) and consent.
 4. In the app, choose **Sign in with Azure AD (MSAL)** and provide:
    - Tenant ID
@@ -70,15 +70,16 @@ Use the **Cloud Environment** selector to apply the correct authority/scopes for
 
 ### Important security note
 
-GitHub Pages has no backend runtime. Do **not** place client secrets in this app. If you need service principal tokens, mint them in a secure backend/token broker and pass short-lived tokens to the frontend.
+Bitbucket Pages has no backend runtime. Do **not** place client secrets in this app. If you need service principal tokens, mint them in a secure backend/token broker and pass short-lived tokens to the frontend.
 
-## Deploy to GitHub Pages
+## Deploy to Bitbucket Pages
 
-1. Push this repository to GitHub.
-2. In GitHub: **Settings -> Pages**.
-3. Source: deploy from `main` branch (root).
-4. Save and wait for Pages publish.
-5. Use the published URL in your Azure App redirect settings (if MSAL login is used).
+1. Create a public Bitbucket repository named `powerbi-to-pptx.bitbucket.io` in workspace `powerbi-to-pptx`.
+2. Push this repository content to Bitbucket (keep GitHub live during transition).
+3. In Bitbucket repository settings, enable **Pages** from `main` branch and root path.
+4. Confirm publish at `https://powerbi-to-pptx.bitbucket.io/`.
+5. Add `https://powerbi-to-pptx.bitbucket.io/` to your Azure App redirect URIs (if MSAL login is used).
+6. During dual-host transition, keep existing GitHub Pages redirect URI configured until Bitbucket validation is complete.
 
 ## Usage workflow
 
